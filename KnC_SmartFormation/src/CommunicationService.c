@@ -165,6 +165,10 @@ void InterpretPcCommunication( int iReceiveCount )
 	unsigned char* pBuf;
 	char bError = FALSE;	// Error Is Nothing Communication Data
 	union32	u32RedocdCount;		// 2023.04.25	LJK
+	#ifdef SUPPORT_BLACK_OUT
+  unsigned char ucAllChannelFlag = 0;
+  unsigned char j;
+  #endif
 	
 	ReturnFlag.iReturn = 0x12345678;
 	ucChannel = m_ucPcCommPDCA_RxBuffer[2];
@@ -184,6 +188,9 @@ void InterpretPcCommunication( int iReceiveCount )
 		m_ucPcCommPDCA_TxBuffer[7] = m_bChannelRunning[ucChannel];			//0.bit 0:stop, 1:run
 		m_ucPcCommPDCA_TxBuffer[7] |= (m_ucPauseStatus[ucChannel]<<1);		//1.bit 1: pause
 		m_ucPcCommPDCA_TxBuffer[7] |= (m_ucCompletStatus[ucChannel]<<2);	//2.bit 1: Complete
+		#ifdef SUPPORT_BLACK_OUT
+    m_ucPcCommPDCA_TxBuffer[7] |= (m_ucBlackOutFlag[ucChannel]<<2);	//3.bit 1: blackout
+    #endif
 		ucSum ^= m_ucPcCommPDCA_TxBuffer[ucLastIndex++];
 		
 		ReturnFlag.uiReturn = GetStepRecordRemainNumber( ucChannel );
@@ -233,6 +240,10 @@ void InterpretPcCommunication( int iReceiveCount )
 		// Size1 Mcu1 Channel1 Cmd1 ChannelControlBits
 		ReturnFlag.iReturn = 1;
 		m_ucStopSequence[ucChannel] = 1;
+    #ifdef SUPPORT_BLACK_OUT
+    if ( m_ucPauseStatus[ucChannel] == TRUE ) PauseResumeHandler(ucChannel, _PAUSE_NONE);
+    m_ucBlackOutFlag[ucChannel] = 0;
+    #endif
 		//LJK 2023.03.27 일시정지 초기화
 		m_ucPauseStatus[ucChannel] = FALSE;	
 		break;
@@ -244,6 +255,11 @@ void InterpretPcCommunication( int iReceiveCount )
 		
 		if ( m_bChannelRunning[ucChannel] )
 			break;	// Run시는 Error
+
+    #ifdef SUPPORT_BLACK_OUT
+    if ( m_ucPauseStatus[ucChannel] == TRUE ) PauseResumeHandler(ucChannel, _PAUSE_NONE);
+    m_ucBlackOutFlag[ucChannel] = 0;
+    #endif
 		
 		ReturnFlag.iReturn = 1;
 		m_uiStepDownloadSum[ucChannel] = 0;
@@ -635,16 +651,27 @@ void InterpretPcCommunication( int iReceiveCount )
 		}
 		else if( m_ucPcCommPDCA_RxBuffer[4] == _PAUSE_ON )
 		{
+		  #ifdef SUPPORT_BLACK_OUT
+      PauseResumeHandler(ucChannel, m_ucPcCommPDCA_RxBuffer[4]);
+      #else
 			m_ucPauseSequence[ucChannel] = m_ucPcCommPDCA_RxBuffer[4];
-			m_ucPauseStatus[ucChannel] = TRUE;			
+			m_ucPauseStatus[ucChannel] = TRUE;	
+      #endif
 		}
 		else if( m_ucPcCommPDCA_RxBuffer[4] == _RESUME_ON && m_ucPauseStatus[ucChannel] )
 		{
+		  #ifdef SUPPORT_BLACK_OUT
+      PauseResumeHandler(ucChannel, m_ucPcCommPDCA_RxBuffer[4]);
+      #else
 			m_ucPauseSequence[ucChannel] = m_ucPcCommPDCA_RxBuffer[4];
 			m_ucPauseStatus[ucChannel] = FALSE;
+      #endif
 		}
 		else if( m_ucPcCommPDCA_RxBuffer[4] == _RESUME_NEXT_STEP && m_ucPauseStatus[ucChannel] )
 		{
+		  #ifdef SUPPORT_BLACK_OUT
+      PauseResumeHandler(ucChannel, m_ucPcCommPDCA_RxBuffer[4]);
+      #else
 			m_ucFirstStep[ucChannel] = TRUE;
 			m_bChannelRunning[ucChannel] = TRUE;
 			m_ucPreState[ucChannel] = !m_ucNowRestChargeDisCharge[ucChannel];
@@ -653,6 +680,7 @@ void InterpretPcCommunication( int iReceiveCount )
 			
 			m_bContinueNextSequence[ucChannel] = 1;
 			m_ucPauseStatus[ucChannel] = FALSE;
+      #endif
 		}		
 		ReturnFlag.iReturn = m_ucPcCommPDCA_RxBuffer[4];
 		break;
@@ -800,6 +828,70 @@ void InterpretPcCommunication( int iReceiveCount )
         ReturnFlag.iReturn = 1;  //OK
         break;
     #endif
+
+    #ifdef SUPPORT_BLACK_OUT
+    case Pc_Comm_SetResumeStepSequence:
+      // 0     1    2        3	   4		     5          6
+  		// Size1 Mcu1 Channel1 Cmd1  AllCannel StepIndex  Structure
+  		ReturnFlag.iReturn = 0;
+      ucAllChannelFlag = m_ucPcCommPDCA_RxBuffer[4];
+      ucTemp = m_ucPcCommPDCA_RxBuffer[5];
+
+  		if ( ucTemp >= _MAX_SEQUENCE_STEP )	// SEQUENCE_MAX_STEP Over Error
+  			break;
+  			
+  		ReturnFlag.iReturn = 1;
+      if (1 == ucAllChannelFlag)
+      {
+        for ( j=0; j<_MAX_CHANNEL; j++ )
+        {
+          pBuf = (unsigned char *) & m_pFORMATION_STEP_SEQUENCE_STRUCTURE->stSequence[j][ucTemp];
+      		memcpy( (char*)pBuf, (char*)&m_ucPcCommPDCA_RxBuffer[6], sizeof(_FORMATIONM_STEP_SEQUENCE) );
+      		
+      		//SoC & DoD Test LJK 2024.10.24
+      		memset(&m_pFORMATION_STEP_END_DATA_STRUCTURE->stStepEndData[j][ucTemp], 
+      				0, 
+      				sizeof(m_pFORMATION_STEP_END_DATA_STRUCTURE->stStepEndData[0][0]));
+      		if(m_pFORMATION_STEP_SEQUENCE_STRUCTURE->stSequence[j][ucTemp].usLoopCountNow == 0xAA)
+      		{
+      			m_pFORMATION_STEP_END_DATA_STRUCTURE->stStepEndData[j][ucTemp].uiCV_msSecond32 = 0xAA;
+      			m_pFORMATION_STEP_SEQUENCE_STRUCTURE->stSequence[j][ucTemp].usLoopCountNow = 0;
+      		}
+      		//m_pFORMATION_STEP_END_DATA_STRUCTURE->stStepEndData[ucChannel][ucTemp].usLoopCountNow = 0;
+      			
+      		if ( ucTemp == 0 )	// First Step At Clear
+      			m_uiStepDownloadSum[j] = 0;
+      			
+      		for( i=0; i<sizeof(_FORMATIONM_STEP_SEQUENCE); i++ )
+      			m_uiStepDownloadSum[j] += pBuf[i];
+        }
+      }
+      else
+      {
+    		pBuf = (unsigned char *) & m_pFORMATION_STEP_SEQUENCE_STRUCTURE->stSequence[ucChannel][ucTemp];
+    		memcpy( (char*)pBuf, (char*)&m_ucPcCommPDCA_RxBuffer[6], sizeof(_FORMATIONM_STEP_SEQUENCE) );
+    		
+    		//SoC & DoD Test LJK 2024.10.24
+    		memset(&m_pFORMATION_STEP_END_DATA_STRUCTURE->stStepEndData[ucChannel][ucTemp], 
+    				0, 
+    				sizeof(m_pFORMATION_STEP_END_DATA_STRUCTURE->stStepEndData[0][0]));
+    		if(m_pFORMATION_STEP_SEQUENCE_STRUCTURE->stSequence[ucChannel][ucTemp].usLoopCountNow == 0xAA)
+    		{
+    			m_pFORMATION_STEP_END_DATA_STRUCTURE->stStepEndData[ucChannel][ucTemp].uiCV_msSecond32 = 0xAA;
+    			m_pFORMATION_STEP_SEQUENCE_STRUCTURE->stSequence[ucChannel][ucTemp].usLoopCountNow = 0;
+    		}
+    		//m_pFORMATION_STEP_END_DATA_STRUCTURE->stStepEndData[ucChannel][ucTemp].usLoopCountNow = 0;
+    			
+    		if ( ucTemp == 0 )	// First Step At Clear
+    			m_uiStepDownloadSum[ucChannel] = 0;
+    			
+    		for( i=0; i<sizeof(_FORMATIONM_STEP_SEQUENCE); i++ )
+    			m_uiStepDownloadSum[ucChannel] += pBuf[i];
+      }
+  		
+  		break;
+      
+    #endif
 	}
 	
 	if ( bError )
@@ -875,3 +967,66 @@ void StepSequence_ClearLoopCounterAll( unsigned char ucCh )
 	for( i=0; i<_MAX_SEQUENCE_STEP; i++ )
 		m_pFORMATION_STEP_SEQUENCE_STRUCTURE->stSequence[ucCh][i].usLoopCountNow = 0;
 }
+
+#ifdef SUPPORT_BLACK_OUT
+void PauseResumeHandler ( unsigned char ucCh, unsigned char param )
+{
+  if( param == _PAUSE_ON )
+	{
+		m_ucPauseSequence[ucCh] = param;
+		m_ucPauseStatus[ucCh] = TRUE;	
+    
+    m_pEEPROM_PAUSE_INFO_DATA.ucIsPauseDataValid[ucCh] = 1;
+    m_pEEPROM_PAUSE_INFO_DATA.ucIsPauseDataWritten[ucCh] = 0;
+    m_pEEPROM_PAUSE_INFO_DATA.ucPauseStatus[ucCh] = TRUE;
+    m_ucPauseSequenceDelay[ucCh] = _DELAY_PAUSE_ON;
+	}
+	else if( param == _RESUME_ON && m_ucPauseStatus[ucCh] )
+	{
+		m_ucPauseSequence[ucCh] = param;
+		m_ucPauseStatus[ucCh] = FALSE;
+    //m_ucBlackoutCheckEnable[ucCh] = 1;
+    m_ucBlackOutFlag[ucCh] = 0;
+    //m_ucBlackOutPauseFlag[ucCh] = 0;
+
+    m_pEEPROM_PAUSE_INFO_DATA.ucIsPauseDataValid[ucCh] = 0;
+    m_pEEPROM_PAUSE_INFO_DATA.ucIsPauseDataWritten[ucCh] = 0;
+    m_pEEPROM_PAUSE_INFO_DATA.ucPauseStatus[ucCh] = FALSE;
+    m_ucPauseSequenceDelay[ucCh] = _DELAY_RESUME_ON;
+	}
+	else if( param == _RESUME_NEXT_STEP && m_ucPauseStatus[ucCh] )
+	{
+		m_ucFirstStep[ucCh] = TRUE;
+		m_bChannelRunning[ucCh] = TRUE;
+		m_ucPreState[ucCh] = !m_ucNowRestChargeDisCharge[ucCh];
+		m_bMcControlAllComplete[ucCh] = FALSE;
+		m_bStepRunning[ucCh] = FALSE;
+		
+		m_bContinueNextSequence[ucCh] = 1;
+		m_ucPauseStatus[ucCh] = FALSE;
+
+    //m_ucStepIndexNow[ucCh] = m_ucStartStepIndex[ucCh];
+    m_pSeqNow[ucCh] = & m_pFORMATION_STEP_SEQUENCE_STRUCTURE->stSequence[ucCh][m_ucStepIndexNow[ucCh]];
+		m_pSeqNext[ucCh] = & m_pFORMATION_STEP_SEQUENCE_STRUCTURE->stSequence[ucCh][(m_ucStepIndexNow[ucCh] + 1) % _MAX_SEQUENCE_STEP];
+    m_ucPulseNextState[ucCh] = m_pSeqNext[ucCh]->ucState;
+    m_ucPreState[ucCh] = !m_ucNowRestChargeDisCharge[ucCh];
+
+    m_pEEPROM_PAUSE_INFO_DATA.ucIsPauseDataValid[ucCh] = 0;
+    m_pEEPROM_PAUSE_INFO_DATA.ucIsPauseDataWritten[ucCh] = 0;
+    m_pEEPROM_PAUSE_INFO_DATA.ucPauseStatus[ucCh] = FALSE;
+    
+    m_ucPauseSequenceDelay[ucCh] = _DELAY_RESUME_ON;
+	}		
+  else if ( param == _PAUSE_NONE && m_ucPauseStatus[ucCh] )
+  {
+    m_ucPauseSequence[ucCh] = param;
+		m_ucPauseStatus[ucCh] = FALSE;
+    
+    m_pEEPROM_PAUSE_INFO_DATA.ucIsPauseDataValid[ucCh] = 0;
+    m_pEEPROM_PAUSE_INFO_DATA.ucIsPauseDataWritten[ucCh] = 0;
+    m_pEEPROM_PAUSE_INFO_DATA.ucPauseStatus[ucCh] = FALSE;
+    m_ucPauseSequenceDelay[ucCh] = _DELAY_CLEAR;    
+  }
+}
+#endif
+

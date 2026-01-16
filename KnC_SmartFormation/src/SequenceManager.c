@@ -88,17 +88,25 @@ unsigned short StartAlarmCheck( unsigned char ucCh )
 {
 	float fDiff;
 	
-    #ifdef MODIFY_ALARM_CONDITION 
-    uint8_t volt1SensorError = FALSE;
-    uint8_t volt2SensorError = FALSE;
-    
-    if(m_fVoltage1Sec[ucCh]   < m_pProtectionType[ucCh].fReverseCellVolt) volt1SensorError = TRUE;
-    if(m_fVoltage2_1Sec[ucCh] < m_pProtectionType[ucCh].fReverseCellVolt) volt2SensorError = TRUE;
+  #ifdef MODIFY_ALARM_CONDITION 
+  uint8_t volt1SensorError = FALSE;
+  uint8_t volt2SensorError = FALSE;
+  #endif
 
-    if((volt1SensorError == TRUE) && (volt2SensorError == TRUE)) return _STEP_ALARM_REVERSE_CELL;
-    else if(volt1SensorError == TRUE) return _STEP_ALARM_VSENSOR_MINUS;
-    else if(volt2SensorError == TRUE) return _STEP_ALARM_ISENSOR_VOLTAGE_MINUS;
-    #else
+  #ifdef SUPPORT_BLACK_OUT
+  if (_BLACKOUT_CHECK_ == 0) return _STEP_ALARM_BLACKOUT;
+  if (_EMG_CHECK_ == 0) return _STEP_ALARM_EMG;
+  if (_SMOKE_CHECK_ == 0) return _STEP_ALARM_SMOKE;
+  #endif
+
+  #ifdef MODIFY_ALARM_CONDITION 
+  if(m_fVoltage1Sec[ucCh]   < m_pProtectionType[ucCh].fReverseCellVolt) volt1SensorError = TRUE;
+  if(m_fVoltage2_1Sec[ucCh] < m_pProtectionType[ucCh].fReverseCellVolt) volt2SensorError = TRUE;
+
+  if((volt1SensorError == TRUE) && (volt2SensorError == TRUE)) return _STEP_ALARM_REVERSE_CELL;
+  else if(volt1SensorError == TRUE) return _STEP_ALARM_VSENSOR_MINUS;
+  else if(volt2SensorError == TRUE) return _STEP_ALARM_ISENSOR_VOLTAGE_MINUS;
+  #else
 	if ( m_fVoltage1Sec[ucCh]<-0.2f  )	//bgyu 20250612
 		return _STEP_ALARM_VSENSOR_MINUS;		
 	if ( m_fVoltage2_1Sec[ucCh]<-0.2f  )
@@ -182,6 +190,11 @@ unsigned short GetAlarmMask( unsigned char ucCh, unsigned short usR )
 		case _STEP_ALARM_CELL_TEMP_ERROR:			uiMask = 1<<_STEP_ALARM_MASK_CELL_TEMP_ERROR; break;	//LJK 2024.07.01		
 		#ifdef MODIFY_ALARM_CONDITION
 		case _STEP_ALARM_REVERSE_CELL:			    uiMask = 1<<_STEP_ALARM_MASK_REVERSE_CELL; break;	    //20250908 jschoi
+		#endif
+    #ifdef SUPPORT_BLACK_OUT
+		case _STEP_ALARM_BLACKOUT:			    uiMask = 1<<_STEP_ALARM_MASK_BLACKOUT; break;	    
+    case _STEP_ALARM_EMG:               uiMask = 1<<_STEP_ALARM_MASK_EMG; break;	 
+    case _STEP_ALARM_SMOKE:               uiMask = 1<<_STEP_ALARM_MASK_EMG; break;	 
 		#endif
 		default: return usR;
 	}
@@ -591,6 +604,36 @@ unsigned short AlarmCheckProcess( unsigned char ucCh )
 	float fVoltagePer10Hour;
 
 	//m_bChagedOrDisChargedNow[ucCh] = ( m_ucNowState[ucCh] == _NOW_STATE_CHARGE || m_ucNowState[ucCh] == _NOW_STATE_DISCHARGE ) ? TRUE : FALSE;
+
+  #ifdef SUPPORT_BLACK_OUT
+  if ( _BLACKOUT_CHECK_ == 0 )
+  {
+    if ( m_u16SafeErrorNumbers[0][RTY_BLACKOUT]>=3 ) 
+    {
+       m_ucBlackOutFlag[ucCh] = 1;
+      return _STEP_ALARM_BLACKOUT;
+    }
+  }
+  else 
+    m_u16SafeErrorNumbers[0][RTY_BLACKOUT] = 0;
+
+  if ( _EMG_CHECK_ == 0 )
+  {
+    if ( m_u16SafeErrorNumbers[ucCh][RTY_EMG]>=5 )
+      return _STEP_ALARM_EMG;
+  }
+  else 
+    m_u16SafeErrorNumbers[ucCh][RTY_EMG] = 0;
+
+  if ( _SMOKE_CHECK_ == 0 )
+  {
+    if ( m_u16SafeErrorNumbers[ucCh][RTY_SMOKE]>=5 )
+      return _STEP_ALARM_SMOKE;
+  }
+  else
+    m_u16SafeErrorNumbers[ucCh][RTY_SMOKE] = 0; 
+  #endif
+  
 	if( fCheckCurrent <0.0)
 		fCheckCurrent = -fCheckCurrent;
 	
@@ -1151,7 +1194,11 @@ void NewStepSetting( unsigned char ucCh )
 	else
 	if ( m_pSeqNow[ucCh]->ucState == _STATE_PULSE || m_pSeqNow[ucCh]->ucState == _STATE_DCIR )
 	{
+	  #ifdef SUPPORT_BLACK_OUT
+    CalculatePulseStepStart(ucCh, m_ucResumeStatus[ucCh]);
+    #else
 		CalculatePulseStepStart(ucCh);
+    #endif
 	}
 	
 	if ( m_pSeqNow[ucCh]->ucMode==_MODE_2POINT_PULSE_DISCHARGE || m_pSeqNow[ucCh]->ucMode==_MODE_2POINT_PULSE_CHARGE )	// bgyu 20250616
@@ -1180,16 +1227,49 @@ void NewStepSetting( unsigned char ucCh )
 	    )	// bgyu 20250616
 	{
     	s16DacVoltage = GetVoltageCurrentToDacHex( VOLTAGE_RANGE_INDEX+ucCh,  m_pSeqNow[ucCh]->fSettingVoltage );
-        SetDacWriteData( _DAC_CH1_CV+ucCh*2, s16DacVoltage );
-    	
-    	if ( m_pSeqNow[ucCh]->ucMode==_MODE_2POINT_PULSE_DISCHARGE )
-    	{
-    		SetDacWriteData( _DAC_CH1_CC+ucCh*2, 0x8000 );	// bgyu 20250905	적분기 쳐박기
-    	}
-    	else
-    	{
-    		SetDacWriteData( _DAC_CH1_CC+ucCh*2, 0x7fff );	// bgyu 20250905	적분기 쳐박기		    
-    	}
+      SetDacWriteData( _DAC_CH1_CV+ucCh*2, s16DacVoltage );
+
+      #ifdef SUPPORT_BLACK_OUT
+      if ( m_ucResumeStatus[ucCh] )
+      {
+        //PULSE 일때 
+        if ( m_pSeqNow[ucCh]->ucMode == _MODE_2POINT_PULSE_DISCHARGE || m_pSeqNow[ucCh]->ucMode == _MODE_2POINT_PULSE_CHARGE ||
+             m_pSeqNow[ucCh]->ucMode == _MODE_10POINT_PULSE_DISCHARGE || m_pSeqNow[ucCh]->ucMode == _MODE_10POINT_PULSE_CHARGE 
+           )
+        {
+          if ( m_pSeqNow[ucCh]->fPulseCurrent[m_ucPulseIndex[ucCh]] < 0 ) 
+          {
+            SetDacWriteData( _DAC_CH1_CC+ucCh*2, 0x8000 );
+          }
+          else
+          {
+            SetDacWriteData( _DAC_CH1_CC+ucCh*2, 0x7fff );
+          }  
+        }
+        else if ( m_pSeqNow[ucCh]->ucMode == _MODE_CCCV )
+        {  
+          if ( m_pSeqNow[ucCh]->fSettingCurrent < 0) 
+          {
+            SetDacWriteData( _DAC_CH1_CC+ucCh*2, 0x8000 );	
+          }
+          else
+          {
+            SetDacWriteData( _DAC_CH1_CC+ucCh*2, 0x7fff );			 
+          }  
+        }
+      }
+      else
+      #endif
+      {
+      	if ( m_pSeqNow[ucCh]->ucMode==_MODE_2POINT_PULSE_DISCHARGE )
+      	{
+      		SetDacWriteData( _DAC_CH1_CC+ucCh*2, 0x8000 );	// bgyu 20250905	적분기 쳐박기
+      	}
+      	else
+      	{
+      		SetDacWriteData( _DAC_CH1_CC+ucCh*2, 0x7fff );	// bgyu 20250905	적분기 쳐박기		    
+      	}
+      }
     }
 	#endif
 
@@ -1342,12 +1422,21 @@ void StepStart( unsigned char ucCh )
 	m_bDCIR_StepStop[ucCh] = FALSE;
 	m_bContinueNextSequence[ucCh] = FALSE;
 	
-
-
 	m_bStepRunning[ucCh] = FALSE;
-	m_uiStepCV_TimeNow[ucCh] = 0;
-	m_fChargeVoltage[ucCh] = m_fDisChargeVoltage[ucCh] = 
-	m_fWatt[ucCh] = m_fChargeCurrent[ucCh] = m_fDisChargeCurrent[ucCh] = m_dblChargeCapacity[ucCh] = m_dblDisChargeCapacity[ucCh]= m_dblChargeWattHour[ucCh] = m_dblDisChargeWattHour[ucCh] = 0;
+
+  #ifdef SUPPORT_BLACK_OUT
+  if( m_ucResumeStatus[ucCh] )
+  {
+    m_fChargeVoltage[ucCh] = m_fDisChargeVoltage[ucCh] = 
+    m_fWatt[ucCh] = m_fChargeCurrent[ucCh] = m_fDisChargeCurrent[ucCh] = 0;
+  }
+  else
+  #endif
+  {
+  	m_uiStepCV_TimeNow[ucCh] = 0;
+  	m_fChargeVoltage[ucCh] = m_fDisChargeVoltage[ucCh] = 
+  	m_fWatt[ucCh] = m_fChargeCurrent[ucCh] = m_fDisChargeCurrent[ucCh] = m_dblChargeCapacity[ucCh] = m_dblDisChargeCapacity[ucCh]= m_dblChargeWattHour[ucCh] = m_dblDisChargeWattHour[ucCh] = 0;
+  }
 	
 	// 20230118 djl
 	m_fSoc[ucCh] = (pStepEndCondition->fChargeCapacity - pStepEndCondition->fDisChargeCapacity) * (m_pSeqNow[ucCh]->StepEndCondition.fChargeCapacity/100.0f);
@@ -1441,6 +1530,23 @@ void CalculateCapacity( unsigned char ucCh )
 	}
 }
 
+#ifdef SUPPORT_BLACK_OUT
+void CalculatePulseStepStart( unsigned char ucCh, unsigned char ucResumeStatus )
+{
+  if ( ucResumeStatus == FALSE )
+  {
+    m_ucPulseIndex[ucCh] = 0xff;
+    m_u16PulseTime1ms[ucCh] = m_pSeqNow[ucCh]->u16PulseTime1ms[0];
+    m_fPulseCurrent[ucCh] = m_pSeqNow[ucCh]->fPulseCurrent[0] >= 0.0f ? CHARGE_MINIMUM_CURREN : DISCHARGE_MINIMUM_CURRENT;
+    m_u16PulseTime1msNow[ucCh] = m_u16PulseTime1ms[ucCh];
+  }
+  else
+  {
+    //m_fPulseCurrent[ucCh] = m_pSeqNow[ucCh]->fPulseCurrent[m_ucPulseIndex[ucCh]] >= 0.0f ? CHARGE_MINIMUM_CURREN : DISCHARGE_MINIMUM_CURRENT;
+    m_u16PulseTime1ms[ucCh] = m_pSeqNow[ucCh]->u16PulseTime1ms[m_ucPulseIndex[ucCh]];
+  }
+}
+#else
 void CalculatePulseStepStart( unsigned char ucCh )
 {
 	m_ucPulseIndex[ucCh] = 0xff;
@@ -1451,6 +1557,7 @@ void CalculatePulseStepStart( unsigned char ucCh )
 	m_fPulseCurrent[ucCh] = m_pSeqNow[ucCh]->fPulseCurrent[0] >= 0.0f ? CHARGE_MINIMUM_CURREN : DISCHARGE_MINIMUM_CURRENT;
 	//SetNextPulse(ucCh);
 }
+#endif
 
 void NowModeStateSet( unsigned char ucCh )
 {	
@@ -1596,7 +1703,11 @@ void SetNextPulse( unsigned char ucCh )
 				#else
 				if ( m_pSeqNow[ucCh]->fPulseCurrent[m_ucPulseIndex[ucCh]] != CHARGE_MINIMUM_CURREN && m_pSeqNow[ucCh]->fPulseCurrent[m_ucPulseIndex[ucCh]] != DISCHARGE_MINIMUM_CURRENT )
 					m_fPulseCurrent[ucCh] -= (float)m_uiStepTimeNow[ucCh] / 1000.0f * m_pSeqNow[ucCh]->fPulseDisChargeUp1Sec;
-					
+
+        #ifdef SUPPORT_BLACK_OUT
+        m_uiPauseStepTimeNow[ucCh] = m_uiStepTimeNow[ucCh];
+        #endif
+        
 				if ( m_ucNowPulseMode[ucCh] == _PULSE_MODE_CCCV || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CCCV_DP || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CCCV_CP ||	// bgyu 20250612
 					m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV_DP || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV_CP || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CRCV ||
 					m_ucNowPulseMode[ucCh] == _PULSE_MODE_PCCV_DP2 || m_ucNowPulseMode[ucCh] == _PULSE_MODE_PPCV_DP2 || m_ucNowPulseMode[ucCh] == _PULSE_MODE_PRCV_CP2 ||		// bgyu 20250616
@@ -1655,7 +1766,11 @@ void SetNextPulse( unsigned char ucCh )
 				#else
 				if ( m_pSeqNow[ucCh]->fPulseCurrent[m_ucPulseIndex[ucCh]] != CHARGE_MINIMUM_CURREN && m_pSeqNow[ucCh]->fPulseCurrent[m_ucPulseIndex[ucCh]] != DISCHARGE_MINIMUM_CURRENT )
 					m_fPulseCurrent[ucCh] += (float)m_uiStepTimeNow[ucCh] / 1000.0f * m_pSeqNow[ucCh]->fPulseChargeUp1Sec;
-					
+
+        #ifdef SUPPORT_BLACK_OUT
+        m_uiPauseStepTimeNow[ucCh] = m_uiStepTimeNow[ucCh];
+        #endif
+        
 				if ( m_ucNowPulseMode[ucCh] == _PULSE_MODE_CCCV || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CCCV_DP || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CCCV_CP ||	// bgyu 20250612
 					m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV_DP || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV_CP || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CRCV ||
 					m_ucNowPulseMode[ucCh] == _PULSE_MODE_PCCV_DP2 || m_ucNowPulseMode[ucCh] == _PULSE_MODE_PPCV_DP2 || m_ucNowPulseMode[ucCh] == _PULSE_MODE_PRCV_CP2 ||		// bgyu 20250616
@@ -1692,6 +1807,10 @@ void SetNextPulse( unsigned char ucCh )
 							fDisChargePercentCurrent = m_fChargeCurrent[ucCh]*(m_pSeqNow[ucCh]->fPulseCurrent[1]/100.0f);
 							m_fPulseDisChargeCurrentPreStep[ucCh] = fDisChargePercentCurrent;	// bgyu 20250616	
 							s16DacCurrent = GetVoltageCurrentToDacHex( CURRENT_RANGE_INDEX+ucCh*2, -fDisChargePercentCurrent );	// DisCharge Current
+
+              #ifdef SUPPORT_BLACK_OUT
+              m_fPulseRefCurrent[ucCh] = m_fChargeCurrent[ucCh];
+              #endif
 						}
 						else
 							s16DacCurrent = GetVoltageCurrentToDacHex( CURRENT_RANGE_INDEX+ucCh*2, -m_fPulseCurrent[ucCh] );	// DisCharge Current
@@ -1706,6 +1825,10 @@ void SetNextPulse( unsigned char ucCh )
 							fChargePercentCurrent = m_fDisChargeCurrent[ucCh]*(m_pSeqNow[ucCh]->fPulseCurrent[1]/100.0f);
 							m_fPulseChargeCurrentPreStep[ucCh] = fChargePercentCurrent;	// bgyu 20250616	
 							s16DacCurrent = GetVoltageCurrentToDacHex( CURRENT_RANGE_INDEX+ucCh*2+1, fChargePercentCurrent );	// Charge Current
+
+              #ifdef SUPPORT_BLACK_OUT
+              m_fPulseRefCurrent[ucCh] = m_fDisChargeCurrent[ucCh];
+              #endif
 						}
 						else
 							s16DacCurrent = GetVoltageCurrentToDacHex( CURRENT_RANGE_INDEX+ucCh*2+1, m_fPulseCurrent[ucCh] );	// Charge Current
@@ -2140,3 +2263,158 @@ U8 StepEndConditionCheck( U8 ucCh )
 	
 	return 0;
 }
+
+#ifdef SUPPORT_BLACK_OUT
+void SetPulseResume( unsigned char ucCh )
+{
+  S16 s16DacCurrent;
+  S16 s16DacVoltage;
+  float fDisChargePercentCurrent;
+  float fChargePercentCurrent;
+
+  //float fTriangleCurrentDac;
+  //float fCpCrCurrent;
+  //float m_fPulseCpCr;
+ 
+  if ( m_ucNowState[ucCh] != _STATE_PULSE && m_ucNowState[ucCh] != _STATE_DCIR )
+		return;
+
+  if ( m_u16PulseTime1ms[ucCh] < (m_u16PulseTime1msNow[ucCh]+ 1) )
+  {
+    return;
+  }
+
+  m_ucPulseKind[ucCh] = m_pSeqNow[ucCh]->ucPulseKind[m_ucPulseIndex[ucCh]];
+	//m_fPulseCurrentPre[ucCh] = m_fPulseCurrent[ucCh];
+	m_fPulseCurrent[ucCh] = m_pSeqNow[ucCh]->fPulseCurrent[m_ucPulseIndex[ucCh]];
+	//m_u16PulseTime1ms[ucCh] = m_pSeqNow[ucCh]->u16PulseTime1ms[m_ucPulseIndex[ucCh]];
+	
+  if ( m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV_DP ||	// bgyu 20250612
+		m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV || m_ucNowPulseMode[ucCh] == _PULSE_MODE_PPCV_DP2 || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV_CP  )	// bgyu 20250722
+  {
+  	m_fPulseCurrent[ucCh] = m_fPulseCurrent[ucCh]/m_fVoltage1Sec[ucCh];	// Watt
+  }
+	else
+	if ( m_ucNowPulseMode[ucCh] == _PULSE_MODE_CRCV || m_ucNowPulseMode[ucCh] == _PULSE_MODE_PRCV_CP2 )
+  { 
+  	m_fPulseCurrent[ucCh] = m_fVoltage1Sec[ucCh]/m_fPulseCurrent[ucCh]*1000.0f;	// Resister mΩ 단위 bgyu 20250612
+  }
+
+  if ( m_ucPulseKind[ucCh] == _PULSE_RECTANGLE )
+  {  
+    if ( m_fPulseCurrent[ucCh] < 0.0f )
+	  {
+			m_ucNowRestChargeDisCharge[ucCh] = m_ucPulseNextState[ucCh] = _NOW_STATE_DISCHARGE;					
+			
+			if ( m_pSeqNow[ucCh]->fPulseCurrent[m_ucPulseIndex[ucCh]] != CHARGE_MINIMUM_CURREN && m_pSeqNow[ucCh]->fPulseCurrent[m_ucPulseIndex[ucCh]] != DISCHARGE_MINIMUM_CURRENT )
+				m_fPulseCurrent[ucCh] -= (float)m_uiPauseStepTimeNow[ucCh] / 1000.0f * m_pSeqNow[ucCh]->fPulseDisChargeUp1Sec;
+				 
+			if ( m_ucNowPulseMode[ucCh] == _PULSE_MODE_CCCV || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CCCV_DP || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CCCV_CP ||	// bgyu 20250612
+				m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV_DP || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV_CP || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CRCV ||
+				m_ucNowPulseMode[ucCh] == _PULSE_MODE_PCCV_DP2 || m_ucNowPulseMode[ucCh] == _PULSE_MODE_PPCV_DP2 || m_ucNowPulseMode[ucCh] == _PULSE_MODE_PRCV_CP2 ||		// bgyu 20250616
+				m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV )	// bgyu 20250722
+			{
+				if ( m_pSeqNow[ucCh]->fPulseDisChargeUp1Sec < (float)-0.0000001 )	// bgyu 20250611	증가시는 Max Limit, 감소시는 Min Limit
+				{
+					if ( -m_fPulseCurrent[ucCh] < m_pSeqNow[ucCh]->fPulseDisChargeCurrentMax )
+						m_fPulseCurrent[ucCh] = -m_pSeqNow[ucCh]->fPulseDisChargeCurrentMax;
+				}
+				else
+				if ( -m_fPulseCurrent[ucCh] > m_pSeqNow[ucCh]->fPulseDisChargeCurrentMax )
+					m_fPulseCurrent[ucCh] = -m_pSeqNow[ucCh]->fPulseDisChargeCurrentMax;
+			}
+			
+			//m_fPulseDisChargeCurrentPreStep[ucCh] = m_fPulseCurrent[ucCh];	// bgyu 20250616
+		}
+		else
+		if ( m_fPulseCurrent[ucCh] > 0.0f )
+		{
+			m_ucNowRestChargeDisCharge[ucCh] = m_ucPulseNextState[ucCh] = _NOW_STATE_CHARGE;
+			
+			if ( m_pSeqNow[ucCh]->fPulseCurrent[m_ucPulseIndex[ucCh]] != CHARGE_MINIMUM_CURREN && m_pSeqNow[ucCh]->fPulseCurrent[m_ucPulseIndex[ucCh]] != DISCHARGE_MINIMUM_CURRENT )
+				m_fPulseCurrent[ucCh] += (float)m_uiPauseStepTimeNow[ucCh] / 1000.0f * m_pSeqNow[ucCh]->fPulseChargeUp1Sec;
+				
+			if ( m_ucNowPulseMode[ucCh] == _PULSE_MODE_CCCV || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CCCV_DP || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CCCV_CP ||	// bgyu 20250612
+				m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV_DP || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV_CP || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CRCV ||
+				m_ucNowPulseMode[ucCh] == _PULSE_MODE_PCCV_DP2 || m_ucNowPulseMode[ucCh] == _PULSE_MODE_PPCV_DP2 || m_ucNowPulseMode[ucCh] == _PULSE_MODE_PRCV_CP2 ||		// bgyu 20250616
+				m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV )	// bgyu 20250722
+			{
+				if ( m_pSeqNow[ucCh]->fPulseChargeUp1Sec < (float)-0.0000001 )	// bgyu 20250611	증가시는 Max Limit, 감소시는 Min Limit
+				{
+					if ( m_fPulseCurrent[ucCh] < m_pSeqNow[ucCh]->fPulseChargeCurrentMax )
+						m_fPulseCurrent[ucCh] = m_pSeqNow[ucCh]->fPulseChargeCurrentMax;
+				}
+				else
+				if ( m_fPulseCurrent[ucCh] > m_pSeqNow[ucCh]->fPulseChargeCurrentMax )
+					m_fPulseCurrent[ucCh] = m_pSeqNow[ucCh]->fPulseChargeCurrentMax;
+			}
+			
+			//m_fPulseChargeCurrentPreStep[ucCh] = m_fPulseCurrent[ucCh];	// bgyu 20250616
+		}
+		else
+			m_ucPulseNextState[ucCh] = m_ucNowState[ucCh];
+		
+		if ( m_bChannelRunning[ucCh] )
+		{
+			if ( m_ucNowPulseMode[ucCh] == _PULSE_MODE_CCCV || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CCCV_DP  || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CCCV_CP ||	// bgyu 20250612
+				m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV_DP || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV_CP || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CRCV ||
+				m_ucNowPulseMode[ucCh] == _PULSE_MODE_PCCV_DP2 || m_ucNowPulseMode[ucCh] == _PULSE_MODE_PPCV_DP2 || m_ucNowPulseMode[ucCh] == _PULSE_MODE_PRCV_CP2 ||		// bgyu 20250616
+				m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV )	// bgyu 20250722
+			{
+				if ( m_ucPulseNextState[ucCh] == _NOW_STATE_DISCHARGE )
+				{
+					if ( m_ucNowPulseMode[ucCh] == _PULSE_MODE_CCCV_DP || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV_DP ||	// bgyu 20250612
+						m_ucNowPulseMode[ucCh] == _PULSE_MODE_PCCV_DP2 || m_ucNowPulseMode[ucCh] == _PULSE_MODE_PPCV_DP2 )		// bgyu 20250616
+					{
+						fDisChargePercentCurrent = m_fPulseRefCurrent[ucCh]*(m_pSeqNow[ucCh]->fPulseCurrent[1]/100.0f);
+						m_fPulseDisChargeCurrentPreStep[ucCh] = fDisChargePercentCurrent;	// bgyu 20250616	
+						s16DacCurrent = GetVoltageCurrentToDacHex( CURRENT_RANGE_INDEX+ucCh*2, -fDisChargePercentCurrent );	// DisCharge Current
+					}
+					else
+						s16DacCurrent = GetVoltageCurrentToDacHex( CURRENT_RANGE_INDEX+ucCh*2, -m_fPulseCurrent[ucCh] );	// DisCharge Current
+
+					s16DacVoltage = GetVoltageCurrentToDacHex( VOLTAGE_RANGE_INDEX+ucCh, m_pSeqNow[ucCh]->fSettingCurrent  );	// DisCharge Voltage
+				}
+				else
+				{
+					if ( m_ucNowPulseMode[ucCh] == _PULSE_MODE_CCCV_CP || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV_CP || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CRCV ||
+						m_ucNowPulseMode[ucCh] == _PULSE_MODE_PRCV_CP2 )		// bgyu 20250616
+					{
+						fChargePercentCurrent = m_fPulseRefCurrent[ucCh]*(m_pSeqNow[ucCh]->fPulseCurrent[1]/100.0f);
+						m_fPulseChargeCurrentPreStep[ucCh] = fChargePercentCurrent;	// bgyu 20250616	
+						s16DacCurrent = GetVoltageCurrentToDacHex( CURRENT_RANGE_INDEX+ucCh*2+1, fChargePercentCurrent );	// Charge Current
+					}
+					else
+						s16DacCurrent = GetVoltageCurrentToDacHex( CURRENT_RANGE_INDEX+ucCh*2+1, m_fPulseCurrent[ucCh] );	// Charge Current
+
+					s16DacVoltage = GetVoltageCurrentToDacHex( VOLTAGE_RANGE_INDEX+ucCh, m_pSeqNow[ucCh]->fSettingVoltage  );	// Charge Voltage
+				}
+				
+				SetDacWriteData( _DAC_CH1_CC+ucCh*2, s16DacCurrent );
+			}
+			else
+			if ( /*m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV_CP || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV_DP || */m_ucNowPulseMode[ucCh] == _PULSE_MODE_CPCV || m_ucNowPulseMode[ucCh] == _PULSE_MODE_CRCV )	// bgyu 20250612
+			{
+				if ( m_ucPulseNextState[ucCh] == _NOW_STATE_DISCHARGE )
+				{
+					s16DacVoltage = GetVoltageCurrentToDacHex( VOLTAGE_RANGE_INDEX+ucCh, m_pSeqNow[ucCh]->fSettingCurrent  );	// DisCharge Voltage
+				}
+				else
+				{
+					s16DacVoltage = GetVoltageCurrentToDacHex( VOLTAGE_RANGE_INDEX+ucCh, m_pSeqNow[ucCh]->fSettingVoltage  );	// Charge Voltage
+				}
+			}
+			
+			SetDacWriteData( _DAC_CH1_CV+ucCh*2, s16DacVoltage );
+		}
+   
+		//DEBUG_TP1_L;
+		return;
+  }
+
+  return;
+  
+}
+
+#endif
+

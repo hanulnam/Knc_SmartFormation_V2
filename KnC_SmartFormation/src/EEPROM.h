@@ -52,5 +52,9 @@ uint8_t EEP_Cal_Data_Read(uint8_t *Arr, uint16_t size);
 uint8_t EEP_CAL_Data_Check(uint8_t *Arr, uint16_t size);
 //int EEP_Cal_Data_Write_ST(uint8_t CH, uint8_t Kind, int Point);
 //int EEP_Cal_Data_Read_ST(uint8_t CH, uint8_t Kind, int Point);
+#ifdef SUPPORT_BLACK_OUT
+uint8_t EEP_PauseInfo_Data_Write(uint8_t *Arr, uint16_t size);
+uint8_t EEP_PauseInfo_Data_Read(uint8_t *Arr, uint16_t size);
+#endif
 
 #endif /* INCFILE1_H_ */

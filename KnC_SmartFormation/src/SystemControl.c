@@ -1861,4 +1861,66 @@ void GetFetTempNVolt2( void )
 	delay_us(1);
 	/* Start ADCIFA sequencer 0 */
 	AVR32_ADCIFA.cr = AVR32_ADCIFA_CR_SOC0_MASK;	
+}
+#ifdef SUPPORT_BLACK_OUT
+void BlackOutStepEnd( unsigned char ucCh, int ucEndKind )
+{
+	m_bAlarmParameterSet[ucCh] = FALSE;
+	m_ucNowPulseMode[ucCh] = _PULSE_MODE_NONE;
+	m_ucNowMode[ucCh] = _MODE_NONE;
 }
+
+void PauseResumeControl ( void )
+{
+  unsigned char i = 0;
+  unsigned char eepromWriteFlag = 0;
+  
+  for (i=0; i<_MAX_CHANNEL; i++)
+  {
+    if (m_ucPauseSequenceDelay[i] == _DELAY_PAUSE_ON || m_ucPauseSequenceDelay[i] == _DELAY_RESUME_ON || m_ucPauseSequenceDelay[i] == _DELAY_CLEAR)
+    {
+      eepromWriteFlag = 1;
+      break;
+    }
+  }
+
+  if (eepromWriteFlag == 1)
+  {
+    for (i=0; i<_MAX_CHANNEL; i++)
+    {
+      if ( m_bChannelRunning[i] )
+      {
+        eepromWriteFlag = 0;
+      }
+    }
+  }
+
+  if (eepromWriteFlag == 1)
+  {
+    m_ucEEPRomControl = _EEPRom_WRITE_CLEAR_PAUSE_INFO;
+   
+    for (i=0; i<_MAX_CHANNEL; i++)
+    {
+      if ( m_ucPauseSequenceDelay[i] == _DELAY_PAUSE_ON )
+      {
+        m_ucEEPRomControl = _EEPRom_WRITE_PAUSE_SYS_RESUME_INFO;
+        break;
+      }
+    }
+    
+    for (i=0; i<_MAX_CHANNEL; i++)
+    {
+      if ( m_ucPauseSequenceDelay[i] == _DELAY_PAUSE_ON )
+      {
+        if ( m_pEEPROM_PAUSE_INFO_DATA.ucIsPauseDataValid[i] == 1 ) m_pEEPROM_PAUSE_INFO_DATA.ucIsPauseDataWritten[i] = 1; 
+      }
+      else if ( m_ucPauseSequenceDelay[i] == _DELAY_RESUME_ON || m_ucPauseSequenceDelay[i] == _DELAY_CLEAR )
+      {
+        m_pEEPROM_PAUSE_INFO_DATA.ucIsPauseDataValid[i] = 0;
+        m_pEEPROM_PAUSE_INFO_DATA.ucIsPauseDataWritten[i] = 1;  
+      }
+      m_ucPauseSequenceDelay[i] = _EEPRom_NONE;
+    }
+  }   
+}
+#endif

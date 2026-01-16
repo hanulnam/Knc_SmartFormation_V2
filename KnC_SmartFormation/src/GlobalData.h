@@ -247,6 +247,16 @@ extern float m_fReverseCellVolt;
 extern _PROTECTION_CONDITION_TYPE m_pProtectionType[_MAX_CHANNEL];
 #endif
 
+#ifdef SUPPORT_BLACK_OUT
+extern unsigned int m_uiPauseStepTimeNow[_MAX_CHANNEL];
+extern U16 m_u16PausePulseTime1msNow[_MAX_CHANNEL]; 
+extern PAUSE_INFO_DATA m_pEEPROM_PAUSE_INFO_DATA;
+extern float m_fPulseRefCurrent[_MAX_CHANNEL];
+extern unsigned char m_ucPauseSequenceDelay[_MAX_CHANNEL];
+extern unsigned char m_ucBlackOutFlag[_MAX_CHANNEL];dd
+#endif
+
+
 void SDRAM_AddressSet( void );
 
 #endif /* GlobalData_H_ */

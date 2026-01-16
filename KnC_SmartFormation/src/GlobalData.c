@@ -229,6 +229,15 @@ float m_fReverseCellVolt;
 _PROTECTION_CONDITION_TYPE m_pProtectionType[_MAX_CHANNEL];
 #endif
 
+#ifdef SUPPORT_BLACK_OUT
+unsigned int m_uiPauseStepTimeNow[_MAX_CHANNEL];
+U16 m_u16PausePulseTime1msNow[_MAX_CHANNEL];  
+PAUSE_INFO_DATA m_pEEPROM_PAUSE_INFO_DATA;
+float m_fPulseRefCurrent[_MAX_CHANNEL];
+unsigned char m_ucPauseSequenceDelay[_MAX_CHANNEL];
+unsigned char m_ucBlackOutFlag[_MAX_CHANNEL] = {0,0,0,0};
+#endif
+
 void SDRAM_AddressSet( void )
 {
 	m_pFORMATION_STEP_RECORD_DATA_STRUCTURE = (_FORMATIONM_STEP_RECORD_DATA_STRUCTURE* )(EXT_SDRAM_BASE_ADDRESS);

@@ -96,11 +96,17 @@ void KpuPinDefineAndInitialize( void )		// Pin Define은 윤차장이 좀 수고
 		{ AVR32_PIN_PA08, GPIO_NORMAL_DRIVE_OUTPUT,					}, // PA08 // Htemp_A1							//n
 		{ AVR32_PIN_PA09, GPIO_NORMAL_DRIVE_OUTPUT,					}, // PA09 // HTemp_A2							//n
 
-
+    
+    #ifdef SUPPORT_BLACK_OUT
+    { AVR32_PIN_PA29, GPIO_NORMAL_INPUT,					}, // PA29 // Debug0							//n
+    { AVR32_PIN_PA26, GPIO_NORMAL_INPUT,					}, // PA26 // Debug1							//n
+		{ AVR32_PIN_PA27, GPIO_NORMAL_INPUT,					}, // PA27 // Debug2							//n
+    #else
 		{ AVR32_PIN_PA29, GPIO_NORMAL_DRIVE_OUTPUT,					}, // PA29 // Debug0							//n
 		{ AVR32_PIN_PA26, GPIO_NORMAL_DRIVE_OUTPUT,					}, // PA26 // Debug1							//n
 		{ AVR32_PIN_PA27, GPIO_NORMAL_DRIVE_OUTPUT,					}, // PA27 // Debug2							//n
-
+    #endif
+    
 		{ AVR32_PIN_PC09, GPIO_NORMAL_DRIVE_OUTPUT,					}, // PC09 // Ch1 AdcVSelect(VOLTAGE2_MODE)		//n
 		{ AVR32_PIN_PD25, GPIO_NORMAL_DRIVE_OUTPUT,					}, // PD25 // Ch2 AdcVSelect(VOLTAGE2_MODE)		//n
 		{ AVR32_PIN_PD26, GPIO_NORMAL_DRIVE_OUTPUT,					}, // PD26 // Ch3 AdcVSelect(VOLTAGE2_MODE)		//n			
@@ -592,6 +598,11 @@ __attribute__((__interrupt__)) static void CaptainTimerCounterInterrupHandler( v
 			m_ucStopSequence[0] = m_ucPauseSequence[0] = _PAUSE_NONE;
 			if ( m_bChannelRunning[0] )
 			{
+			  #ifdef SUPPORT_BLACK_OUT
+        SetPauseInfoData(0);
+        m_ucPauseSequenceDelay[0] = _DELAY_PAUSE_ON;
+        #endif
+        
 				StepEnd( 0, _STEP_END_PAUSE );
 				FormationEnd( 0 );
 			}
@@ -599,12 +610,17 @@ __attribute__((__interrupt__)) static void CaptainTimerCounterInterrupHandler( v
 		else
 		if( m_ucPauseSequence[0] == _RESUME_ON )
 		{
-			m_ucPauseSequence[0] = FALSE;
-			m_ucResumeStatus[0] = TRUE;
-			
-			m_bRunSequence[0] = TRUE;
-			m_ucStartStepIndex[0] = m_ucStepIndexNow[0];
-			m_uiPauseTimeNow[0] = m_uiStepTimeNow[0];
+		  #ifdef SUPPORT_BLACK_OUT
+		  if ( m_ucPauseSequenceDelay[0] == _DELAY_NONE )
+      #endif
+      {
+  			m_ucPauseSequence[0] = FALSE;
+  			m_ucResumeStatus[0] = TRUE;
+  			
+  			m_bRunSequence[0] = TRUE;
+  			m_ucStartStepIndex[0] = m_ucStepIndexNow[0];
+  			m_uiPauseTimeNow[0] = m_uiStepTimeNow[0];
+      }
 		}//						
 	}
 	
@@ -699,6 +715,11 @@ __attribute__((__interrupt__)) static void CaptainTimerCounterInterrupHandler( v
 			m_ucStopSequence[1] = m_ucPauseSequence[1] = _PAUSE_NONE;
 			if ( m_bChannelRunning[1] )
 			{
+			  #ifdef SUPPORT_BLACK_OUT
+        SetPauseInfoData(1);
+        m_ucPauseSequenceDelay[1] = _DELAY_PAUSE_ON;
+        #endif
+        
 				StepEnd( 1, _STEP_END_PAUSE );
 				FormationEnd( 1 );
 			}
@@ -706,12 +727,17 @@ __attribute__((__interrupt__)) static void CaptainTimerCounterInterrupHandler( v
 		else
 		if( m_ucPauseSequence[1] == _RESUME_ON )
 		{
-			m_ucPauseSequence[1] = FALSE;
-			m_ucResumeStatus[1] = TRUE;
-			
-			m_bRunSequence[1] = TRUE;
-			m_ucStartStepIndex[1] = m_ucStepIndexNow[1];
-			m_uiPauseTimeNow[1] = m_uiStepTimeNow[1];
+		  #ifdef SUPPORT_BLACK_OUT
+		  if ( m_ucPauseSequenceDelay[1] == _DELAY_NONE )
+      #endif
+      {
+  			m_ucPauseSequence[1] = FALSE;
+  			m_ucResumeStatus[1] = TRUE;
+  			
+  			m_bRunSequence[1] = TRUE;
+  			m_ucStartStepIndex[1] = m_ucStepIndexNow[1];
+  			m_uiPauseTimeNow[1] = m_uiStepTimeNow[1];
+      }
 		}//		
 	}
 	{
@@ -806,6 +832,11 @@ __attribute__((__interrupt__)) static void CaptainTimerCounterInterrupHandler( v
 			m_ucStopSequence[2] = m_ucPauseSequence[2] = _PAUSE_NONE;
 			if ( m_bChannelRunning[2] )
 			{
+			  #ifdef SUPPORT_BLACK_OUT
+        SetPauseInfoData(2);
+        m_ucPauseSequenceDelay[2] = _DELAY_PAUSE_ON;
+        #endif
+        
 				StepEnd( 2, _STEP_END_PAUSE );
 				FormationEnd( 2 );
 			}
@@ -813,12 +844,17 @@ __attribute__((__interrupt__)) static void CaptainTimerCounterInterrupHandler( v
 		else 		
 		if( m_ucPauseSequence[2] == _RESUME_ON )
 		{
-			m_ucPauseSequence[2] = FALSE;
-			m_ucResumeStatus[2] = TRUE;
-			
-			m_bRunSequence[2] = TRUE;
-			m_ucStartStepIndex[2] = m_ucStepIndexNow[2];
-			m_uiPauseTimeNow[2] = m_uiStepTimeNow[2];
+		  #ifdef SUPPORT_BLACK_OUT
+		  if ( m_ucPauseSequenceDelay[2] == _DELAY_NONE )
+      #endif
+      {
+  			m_ucPauseSequence[2] = FALSE;
+  			m_ucResumeStatus[2] = TRUE;
+  			
+  			m_bRunSequence[2] = TRUE;
+  			m_ucStartStepIndex[2] = m_ucStepIndexNow[2];
+  			m_uiPauseTimeNow[2] = m_uiStepTimeNow[2];
+      }
 		}//
 	}
 	
@@ -913,6 +949,11 @@ __attribute__((__interrupt__)) static void CaptainTimerCounterInterrupHandler( v
 			m_ucStopSequence[3] = m_ucPauseSequence[3] = _PAUSE_NONE;
 			if ( m_bChannelRunning[3] )
 			{
+			  #ifdef SUPPORT_BLACK_OUT
+        SetPauseInfoData(3);
+        m_ucPauseSequenceDelay[3] = _DELAY_PAUSE_ON;
+        #endif
+        
 				StepEnd( 3, _STEP_END_PAUSE );
 				FormationEnd( 3 );
 			}
@@ -920,12 +961,17 @@ __attribute__((__interrupt__)) static void CaptainTimerCounterInterrupHandler( v
 		else
 		if( m_ucPauseSequence[3] == _RESUME_ON )
 		{
-			m_ucPauseSequence[3] = FALSE;
-			m_ucResumeStatus[3] = TRUE;
-			
-			m_bRunSequence[3] = TRUE;
-			m_ucStartStepIndex[3] = m_ucStepIndexNow[3];
-			m_uiPauseTimeNow[3] = m_uiStepTimeNow[3];
+		  #ifdef SUPPORT_BLACK_OUT
+		  if ( m_ucPauseSequenceDelay[1] == _DELAY_NONE )
+      #endif
+      {
+  			m_ucPauseSequence[3] = FALSE;
+  			m_ucResumeStatus[3] = TRUE;
+  			
+  			m_bRunSequence[3] = TRUE;
+  			m_ucStartStepIndex[3] = m_ucStepIndexNow[3];
+  			m_uiPauseTimeNow[3] = m_uiStepTimeNow[3];
+      }
 		}//		
 	}
 
@@ -991,8 +1037,16 @@ __attribute__((__interrupt__)) static void CaptainTimerCounterInterrupHandler( v
 		if ( m_bNewStepSetting[0] && m_bMcControlAllComplete[0] )
 		{
 			m_bMcControlAllComplete[0] = m_bNewStepSetting[0] = FALSE;
-			NewStepSetting(0);
+			NewStepSetting(0);  
 			m_ucFirstStep2[0] = TRUE;
+
+      #ifdef SUPPORT_BLACK_OUT
+      if ( m_ucResumeStatus[0] )
+      {
+        _LDAC_ENABLE;
+        SetPulseResume(0);
+      }
+      #endif
 		}
 		else
 		{
@@ -1007,8 +1061,17 @@ __attribute__((__interrupt__)) static void CaptainTimerCounterInterrupHandler( v
 		{
 			if ( (usR = AlarmCheck( 0 )) )
 			{
-				StepEnd( 0, usR );
-				FormationEnd( 0 );
+			  #ifdef SUPPORT_BLACK_OUT
+        if ( usR == _STEP_ALARM_BLACKOUT || usR == _STEP_ALARM_EMG || usR == _STEP_ALARM_SMOKE )
+        {
+          PauseResumeHandler(0, _PAUSE_ON);
+        }
+        else
+        #endif
+        {
+  				StepEnd( 0, usR );
+  				FormationEnd( 0 );
+        }
 			}
 		}
 		
@@ -1083,6 +1146,14 @@ __attribute__((__interrupt__)) static void CaptainTimerCounterInterrupHandler( v
 			m_bMcControlAllComplete[1] = m_bNewStepSetting[1] = FALSE;
 			NewStepSetting(1);
 			m_ucFirstStep2[1] = TRUE;
+
+      #ifdef SUPPORT_BLACK_OUT
+      if ( m_ucResumeStatus[1] )
+      {
+        _LDAC_ENABLE;
+        SetPulseResume(1);
+      }
+      #endif
 		}
 		else
 		{
@@ -1097,8 +1168,17 @@ __attribute__((__interrupt__)) static void CaptainTimerCounterInterrupHandler( v
 		{
 			if ( (usR = AlarmCheck( 1 )) )
 			{
-				StepEnd( 1, usR );
-				FormationEnd( 1 );
+			  #ifdef SUPPORT_BLACK_OUT
+        if ( usR == _STEP_ALARM_BLACKOUT || usR == _STEP_ALARM_EMG || usR == _STEP_ALARM_SMOKE )
+        {
+          PauseResumeHandler(1, _PAUSE_ON);
+        }
+        else
+        #endif
+        {
+  				StepEnd( 1, usR );
+  				FormationEnd( 1 );
+        }
 			}
 		}
 		
@@ -1171,6 +1251,14 @@ __attribute__((__interrupt__)) static void CaptainTimerCounterInterrupHandler( v
 			m_bMcControlAllComplete[2] = m_bNewStepSetting[2] = FALSE;
 			NewStepSetting(2);
 			m_ucFirstStep2[2] = TRUE;
+
+      #ifdef SUPPORT_BLACK_OUT
+      if ( m_ucResumeStatus[2] )
+      {
+        _LDAC_ENABLE;
+        SetPulseResume(2);
+      }
+      #endif
 		}
 		else
 		{
@@ -1185,8 +1273,17 @@ __attribute__((__interrupt__)) static void CaptainTimerCounterInterrupHandler( v
 		{
 			if ( (usR = AlarmCheck( 2 )) )
 			{
-				StepEnd( 2, usR );
-				FormationEnd( 2 );
+			  #ifdef SUPPORT_BLACK_OUT
+        if ( usR == _STEP_ALARM_BLACKOUT || usR == _STEP_ALARM_EMG || usR == _STEP_ALARM_SMOKE )
+        {
+          PauseResumeHandler(2, _PAUSE_ON);
+        }
+        else
+        #endif
+        {
+  				StepEnd( 2, usR );
+  				FormationEnd( 2 );
+        }
 			}
 		}
 		
@@ -1260,6 +1357,14 @@ __attribute__((__interrupt__)) static void CaptainTimerCounterInterrupHandler( v
 			m_bMcControlAllComplete[3] = m_bNewStepSetting[3] = FALSE;
 			NewStepSetting(3);
 			m_ucFirstStep2[3] = TRUE;
+
+      #ifdef SUPPORT_BLACK_OUT
+      if ( m_ucResumeStatus[3] )
+      {
+        _LDAC_ENABLE;
+        SetPulseResume(3);
+      }
+      #endif
 		}
 		else
 		{
@@ -1274,8 +1379,17 @@ __attribute__((__interrupt__)) static void CaptainTimerCounterInterrupHandler( v
 		{
 			if ( (usR = AlarmCheck( 3 )) )
 			{
-				StepEnd( 3, usR );
-				FormationEnd( 3 );
+			  #ifdef SUPPORT_BLACK_OUT
+        if ( usR == _STEP_ALARM_BLACKOUT || usR == _STEP_ALARM_EMG || usR == _STEP_ALARM_SMOKE )
+        {
+          PauseResumeHandler(3, _PAUSE_ON);
+        }
+        else
+        #endif
+        {
+  				StepEnd( 3, usR );
+  				FormationEnd( 3 );
+        }
 			}
 		}
 		

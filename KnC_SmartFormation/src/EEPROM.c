@@ -277,4 +277,60 @@
 	}
 	// EEPROM Read Data is Empty(All 0xFF)
 	return FALSE;
- }
+ }
+#ifdef SUPPORT_BLACK_OUT
+uint8_t EEP_PauseInfo_Data_Write(uint8_t *Arr, uint16_t size)
+{
+  uint8_t i, ret_val;
+	uint8_t start_page, page_cnt, page_mod;
+  unsigned char ucSum = 0;
+  
+  start_page = EEP_PAUSEINFO_PAGE_ADDR;
+	page_cnt = (size/EEPROM_PAGESIZE);
+	page_mod = (size%EEPROM_PAGESIZE);
+
+  EEP_UNPROTECTED;
+
+  for (i = 0; i < (size-1); i++)
+  {
+    ucSum ^= Arr[i];
+  }
+  
+  if (0 < size) Arr[size-1] = ucSum;
+  
+	for (i = 0; i < page_cnt; i++)
+	{
+		ret_val = EEP_Write_Page(start_page+i, (uint8_t *)(Arr + i * EEPROM_PAGESIZE));
+	}
+
+	ret_val = EEP_Array_Write_Byte((start_page + page_cnt) * EEPROM_PAGESIZE, (uint8_t *)(Arr + page_cnt * EEPROM_PAGESIZE), page_mod);
+
+	EEP_PROTECTED;
+
+  return ret_val;
+}
+
+uint8_t EEP_PauseInfo_Data_Read(uint8_t *Arr, uint16_t size)
+{
+	uint8_t i, ret_val;
+	uint8_t start_page, page_cnt, page_mod;
+
+	start_page = EEP_PAUSEINFO_PAGE_ADDR;
+	page_cnt = (uint8_t)((size/EEPROM_PAGESIZE));
+	page_mod = (size%EEPROM_PAGESIZE);
+
+	for (i = 0; i < page_cnt; i++)
+	{
+		ret_val = EEP_Read_Page(start_page+i, (uint8_t *)(Arr + i * EEPROM_PAGESIZE));
+	}
+
+	if(page_mod != 0){
+		ret_val = EEP_Array_Read_Byte((start_page + page_cnt) * EEPROM_PAGESIZE, (uint8_t *)(Arr + page_cnt * EEPROM_PAGESIZE), page_mod);
+	}
+	
+	EEP_PROTECTED;
+	
+	return ret_val;
+}
+#endif
+ 

@@ -57,4 +57,9 @@ void SetGate( U8 ucBits );
 void ClearLoopNowCount(unsigned char ucChannel, uint startIndex, uint endIndex);
 void GetFetTempNVolt2( void );
 
+#ifdef SUPPORT_BLACK_OUT
+void BlackOutStepEnd( unsigned char ucCh, int ucEndKind );
+void PauseResumeControl ( void);
+#endif
+
 #endif /* SYSTEMCONTROL_H_ */

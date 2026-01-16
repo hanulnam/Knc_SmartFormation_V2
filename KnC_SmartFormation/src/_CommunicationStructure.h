@@ -38,6 +38,10 @@ enum
 	_EEPRom_NONE = 0,
 	_EEPRom_READ_ALL,
 	_EEPRom_WRITE_ALL,
+	#ifdef SUPPORT_BLACK_OUT
+  _EEPRom_WRITE_PAUSE_SYS_RESUME_INFO,
+  _EEPRom_WRITE_CLEAR_PAUSE_INFO,
+  #endif
 	_HARDWARE_INITIALIZE,
 };
 // State
@@ -188,6 +192,11 @@ enum
 	_STEP_ALARM_REST_UVP,			//LJK 2023.06.22 유부사장 추가사항	
 	_STEP_ALARM_CELL_TEMP_ERROR,	//LJK 2024.07.01 
 	_STEP_ALARM_REVERSE_CELL,       //20250908 역전압 알람 추가
+	#ifdef SUPPORT_BLACK_OUT
+	_STEP_ALARM_BLACKOUT,          //20251212 swcho blackout 추가
+	_STEP_ALARM_EMG,               //20251212 swcho EMG 추가
+	_STEP_ALARM_SMOKE,               //20251212 swcho EMG 추가
+	#endif
 	_STEP_END_CONDITION_NONE,
 };
 
@@ -223,7 +232,22 @@ enum
 	_STEP_ALARM_MASK_REST_UVP,			//LJK 2023.06.22 유부사장 추가사항	
 	_STEP_ALARM_MASK_CELL_TEMP_ERROR,	//LJK 2024.07.01
 	_STEP_ALARM_MASK_REVERSE_CELL,	    //20250908 역전압 알람 추가
+	#ifdef SUPPORT_BLACK_OUT
+	_STEP_ALARM_MASK_BLACKOUT,          //20251212 swcho blackout 추가
+	_STEP_ALARM_MASK_EMG,
+	_STEP_ALARM_MASK_SMOKE,
+	#endif
 };
+
+#ifdef SUPPORT_BLACK_OUT
+enum 
+{ 
+  _DELAY_NONE = 0,
+  _DELAY_PAUSE_ON,
+  _DELAY_RESUME_ON,
+  _DELAY_CLEAR,
+};
+#endif
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Machine Alarm Bit On...
@@ -313,6 +337,10 @@ enum PcCommunicationCommandList
 	#ifdef SUPPORT_PROTECTION_CONDITION
 	PC_Comm_SetProtection,              // 20250805_jschoi
 	#endif
+  
+  #ifdef SUPPORT_BLACK_OUT
+  Pc_Comm_SetResumeStepSequence,
+  #endif
 };
 
 enum _SystemParameterIndexList
@@ -513,6 +541,11 @@ enum RetryCounterValueList					// OK
 	RTY_VOLTAGE_FAST_UP,
 	RTY_REST_OVP,
 	RTY_REST_UVP,	
+	#ifdef SUPPORT_BLACK_OUT
+  RTY_BLACKOUT,
+  RTY_EMG,
+  RTY_SMOKE, 
+  #endif
 	RTY_MAX_CNT,							// MAX CNT
 };
 
@@ -543,6 +576,35 @@ typedef struct
     float fCellTemp;
     
 } _PROTECTION_CONDITION_TYPE;
+#endif
+
+#ifdef SUPPORT_BLACK_OUT
+typedef struct
+{
+  unsigned char ucIsPauseDataValid[_MAX_CHANNEL];
+  unsigned char ucIsPauseDataWritten[_MAX_CHANNEL];
+
+  unsigned int  uiStepTimeNow[_MAX_CHANNEL];
+  unsigned int uiStepCV_TimeNow[_MAX_CHANNEL];
+  
+  unsigned char ucStartStepIndex[_MAX_CHANNEL];
+  unsigned char ucPauseStatus[_MAX_CHANNEL];
+  
+  double dblChargeCapacity[_MAX_CHANNEL];
+  double dblDisChargeCapacity[_MAX_CHANNEL];
+  double dblChargeWattHour[_MAX_CHANNEL];
+  double dblDisChargeWattHour[_MAX_CHANNEL];
+
+  //PULSE
+  unsigned int uiPauseStepTimeNow[_MAX_CHANNEL];
+  unsigned short u16PausePulseTime1msNow[_MAX_CHANNEL];
+  unsigned short u16PulseTime1msNow[_MAX_CHANNEL];
+  float fPulseRefCurrent[_MAX_CHANNEL];
+  float fPulseCurrentPre[_MAX_CHANNEL];
+  unsigned char ucPulseIndex[_MAX_CHANNEL];
+
+  unsigned char checkSum;
+} PAUSE_INFO_DATA;
 #endif
 
 
@@ -740,10 +802,22 @@ typedef struct
 
 #define  CAPTAIN_TP_H			DEBUG_TP0_H
 #define  CAPTAIN_TP_L			DEBUG_TP0_L
+
+#ifdef SUPPORT_BLACK_OUT
+#define _EMG_CHECK_ ( gpio_get_pin_value(_DEBUG0&0xFFF))
+#define _BLACKOUT_CHECK_ ( gpio_get_pin_value(_DEBUG1&0xFFF))
+#define _SMOKE_CHECK_ ( gpio_get_pin_value(_DEBUG2&0xFFF))
+
+#define  ADC_TP_H				0
+#define  ADC_TP_L				0
+#define  ADC_ERROR_TP_H			0
+#define  ADC_ERROR_TP_L			0
+#else
 #define  ADC_TP_H				DEBUG_TP1_H
 #define  ADC_TP_L				DEBUG_TP1_L
 #define  ADC_ERROR_TP_H			DEBUG_TP2_H
 #define  ADC_ERROR_TP_L			DEBUG_TP2_L
+#endif
 
 #define ADD_SDRAM_CHECK_ENALBE	(0xA0003027)
 #define ADD_SDRAM_CHECK_DISABLE (0xA0003028)

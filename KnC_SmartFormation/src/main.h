@@ -31,4 +31,8 @@ void ChargeCvTest( void );
 void ChargeCvTest2( void );
 void CCCV_CP_Test( void );
 void Dac2Initialize ( void );
+#ifdef SUPPORT_BLACK_OUT
+void ReadPauseInfoData ( void );
+void SetPauseInfoData ( unsigned char ucCh );
+#endif
 #endif /* MAIN_H_ */

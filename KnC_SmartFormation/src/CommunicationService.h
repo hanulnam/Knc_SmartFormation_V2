@@ -14,6 +14,9 @@ bool SetMcuGpioData( unsigned int uiAddress, U16 usData );
 int  GetMcuGpioData( unsigned int uiAddress );
 void InterpretPcCommunication( int iReceiveCount );
 void StepSequence_ClearLoopCounterAll( unsigned char ucCh );
+#ifdef SUPPORT_BLACK_OUT
+void PauseResumeHandler (unsigned char ucChannel, unsigned char param);
+#endif
 
 #define DAC_SPI_WAIT_LOOPN	1000
 

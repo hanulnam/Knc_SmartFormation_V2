@@ -46,6 +46,9 @@ int main( void )
 
 	SetUpInterruptHandler();														
 	EEP_Cal_Data_Read( (uint8_t *)&m_pEEPROM_DATA, sizeof(_EEPROM_DATA) );
+  #ifdef SUPPORT_BLACK_OUT
+  ReadPauseInfoData();
+  #endif
 	Enable_global_interrupt();
 	TimerInterruptCounterStart();
 
@@ -568,6 +571,9 @@ void DummyFunctionForMain(void)
 			m_uiSdramCheckEnalbe = FALSE;
 			m_uiSdramCheckEnalbe = FALSE;
 		}
+    #ifdef SUPPORT_BLACK_OUT
+    PauseResumeControl();
+    #endif
 		EEPRom_Write_Control();
 		EEPRom_Read_Control();
 		LedStatusSet();
@@ -578,6 +584,10 @@ void DummyFunctionForMain(void)
 
 void EEPRom_Write_Control( void )
 {
+  #ifdef SUPPORT_BLACK_OUT
+  unsigned short i;
+  #endif
+  
 	if ( m_ucEEPRomControl == _EEPRom_WRITE_ALL )
 	{
 		AVR32_ENTER_CRITICAL_REGION();
@@ -585,6 +595,22 @@ void EEPRom_Write_Control( void )
 		m_ucEEPRomControl = _EEPRom_READ_ALL;
 		AVR32_LEAVE_CRITICAL_REGION();
 	}
+  #ifdef SUPPORT_BLACK_OUT
+  else if ( m_ucEEPRomControl == _EEPRom_WRITE_PAUSE_SYS_RESUME_INFO )
+  {
+    AVR32_ENTER_CRITICAL_REGION();
+		EEP_PauseInfo_Data_Write( (uint8_t *)&m_pEEPROM_PAUSE_INFO_DATA, sizeof(PAUSE_INFO_DATA) );
+		m_ucEEPRomControl = _EEPRom_NONE;
+		AVR32_LEAVE_CRITICAL_REGION();
+  }
+  else if ( m_ucEEPRomControl == _EEPRom_WRITE_CLEAR_PAUSE_INFO )
+  {
+    AVR32_ENTER_CRITICAL_REGION();
+		EEP_PauseInfo_Data_Write( (uint8_t *)&m_pEEPROM_PAUSE_INFO_DATA, sizeof(PAUSE_INFO_DATA) );
+		m_ucEEPRomControl = _EEPRom_NONE;
+		AVR32_LEAVE_CRITICAL_REGION();
+  }
+  #endif
 }
 
 void EEPRom_Read_Control( void )
@@ -597,6 +623,91 @@ void EEPRom_Read_Control( void )
 		AVR32_LEAVE_CRITICAL_REGION();
 	}
 }
+#ifdef SUPPORT_BLACK_OUT
+void ReadPauseInfoData ( void )
+{
+  unsigned int size = sizeof(PAUSE_INFO_DATA);
+  unsigned char checkSum = 0;
+  unsigned int i = 0;
+  unsigned char *pArr = NULL;
+  
+  memset(&m_pEEPROM_PAUSE_INFO_DATA, 0, sizeof(PAUSE_INFO_DATA));
+  EEP_PauseInfo_Data_Read( (uint8_t *)&m_pEEPROM_PAUSE_INFO_DATA, sizeof(PAUSE_INFO_DATA) );
+
+  pArr = (unsigned char *)&m_pEEPROM_PAUSE_INFO_DATA;
+
+  for (i = 0; i < (size-1); i++)
+  {
+    checkSum ^= pArr[i];
+  }
+
+  if (checkSum != m_pEEPROM_PAUSE_INFO_DATA.checkSum)
+  {
+    memset(&m_pEEPROM_PAUSE_INFO_DATA, 0, sizeof(PAUSE_INFO_DATA));
+  }
+  else
+  {
+    for (i = 0; i < _MAX_CHANNEL; i++)
+    {
+      if (m_pEEPROM_PAUSE_INFO_DATA.ucIsPauseDataValid[i] == 1)
+      {  
+        //Load Step parameters
+        m_uiStepTimeNow[i] = m_pEEPROM_PAUSE_INFO_DATA.uiStepTimeNow[i];
+        m_uiStepCV_TimeNow[i] = m_pEEPROM_PAUSE_INFO_DATA.uiStepCV_TimeNow[i];
+        
+        //m_ucNowRestChargeDisCharge[i] = m_pEEPROM_PAUSE_INFO_DATA.ucNowRestChargeDisCharge[i];
+        m_ucPauseStatus[i] = m_pEEPROM_PAUSE_INFO_DATA.ucPauseStatus[i];
+        m_ucStartStepIndex[i] = m_pEEPROM_PAUSE_INFO_DATA.ucStartStepIndex[i];
+        m_ucStepIndexNow[i] = m_ucStartStepIndex[i];
+        
+        m_dblChargeCapacity[i] = m_pEEPROM_PAUSE_INFO_DATA.dblChargeCapacity[i];
+        m_dblDisChargeCapacity[i] = m_pEEPROM_PAUSE_INFO_DATA.dblDisChargeCapacity[i];
+        m_dblChargeWattHour[i] = m_pEEPROM_PAUSE_INFO_DATA.dblChargeWattHour[i];
+        m_dblDisChargeWattHour[i] = m_pEEPROM_PAUSE_INFO_DATA.dblDisChargeWattHour[i];
+
+        m_uiPauseStepTimeNow[i] = m_pEEPROM_PAUSE_INFO_DATA.uiPauseStepTimeNow[i];
+        m_u16PausePulseTime1msNow[i] = m_pEEPROM_PAUSE_INFO_DATA.u16PausePulseTime1msNow[i];
+        m_u16PulseTime1msNow[i] = m_pEEPROM_PAUSE_INFO_DATA.u16PulseTime1msNow[i];
+        m_fPulseRefCurrent[i] = m_pEEPROM_PAUSE_INFO_DATA.fPulseRefCurrent[i];
+        //m_fPulseChargeCurrentPreStep[i] = m_pEEPROM_PAUSE_INFO_DATA.fPulseChargeCurrentPreStep[i];  
+        //m_fPulseDisChargeCurrentPreStep[i] = m_pEEPROM_PAUSE_INFO_DATA.fPulseDisChargeCurrentPreStep[i];  
+        m_fPulseCurrentPre[i] = m_pEEPROM_PAUSE_INFO_DATA.fPulseCurrentPre[i];   
+        //m_fPulseCurrent[i] = m_pEEPROM_PAUSE_INFO_DATA.fPulseCurrent[i];         
+        m_ucPulseIndex[i] = m_pEEPROM_PAUSE_INFO_DATA.ucPulseIndex[i];
+      }
+    }
+  }
+}
+
+void SetPauseInfoData ( unsigned char ucCh )
+{
+  m_pEEPROM_PAUSE_INFO_DATA.ucIsPauseDataValid[ucCh] = 1;
+  m_pEEPROM_PAUSE_INFO_DATA.ucIsPauseDataWritten[ucCh] = 0;
+   
+  m_pEEPROM_PAUSE_INFO_DATA.uiStepTimeNow[ucCh] = m_uiStepTimeNow[ucCh];
+  m_pEEPROM_PAUSE_INFO_DATA.uiStepCV_TimeNow[ucCh] = m_uiStepCV_TimeNow[ucCh];
+  
+  //m_pEEPROM_PAUSE_INFO_DATA.ucNowRestChargeDisCharge[ucCh] = m_ucNowRestChargeDisCharge[ucCh];
+  m_pEEPROM_PAUSE_INFO_DATA.ucPauseStatus[ucCh] = m_ucPauseStatus[ucCh];
+  m_pEEPROM_PAUSE_INFO_DATA.ucStartStepIndex[ucCh] = m_ucStartStepIndex[ucCh];  
+
+  m_pEEPROM_PAUSE_INFO_DATA.dblChargeCapacity[ucCh] = m_dblChargeCapacity[ucCh];
+  m_pEEPROM_PAUSE_INFO_DATA.dblDisChargeCapacity[ucCh]= m_dblDisChargeCapacity[ucCh];
+  m_pEEPROM_PAUSE_INFO_DATA.dblChargeWattHour[ucCh] = m_dblChargeWattHour[ucCh];
+  m_pEEPROM_PAUSE_INFO_DATA.dblDisChargeWattHour[ucCh] = m_dblDisChargeWattHour[ucCh];
+
+  //PULSE
+  m_pEEPROM_PAUSE_INFO_DATA.uiPauseStepTimeNow[ucCh] = m_uiPauseStepTimeNow[ucCh];
+  m_pEEPROM_PAUSE_INFO_DATA.u16PausePulseTime1msNow[ucCh] = m_u16PausePulseTime1msNow[ucCh];
+  m_pEEPROM_PAUSE_INFO_DATA.u16PulseTime1msNow[ucCh] = m_u16PulseTime1msNow[ucCh];
+  m_pEEPROM_PAUSE_INFO_DATA.ucPulseIndex[ucCh] = m_ucPulseIndex[ucCh];
+  m_pEEPROM_PAUSE_INFO_DATA.fPulseRefCurrent[ucCh] = m_fPulseRefCurrent[ucCh];
+  //m_pEEPROM_PAUSE_INFO_DATA.fPulseChargeCurrentPreStep[ucCh] = m_fPulseChargeCurrentPreStep[ucCh];
+  //m_pEEPROM_PAUSE_INFO_DATA.fPulseDisChargeCurrentPreStep[ucCh] = m_fPulseDisChargeCurrentPreStep[ucCh];
+  m_pEEPROM_PAUSE_INFO_DATA.fPulseCurrentPre[ucCh] = m_fPulseCurrentPre[ucCh];
+  //m_pEEPROM_PAUSE_INFO_DATA.fPulseCurrent[ucCh] = m_fPulseCurrent[ucCh];
+}
+#endif
 
 void LoadMcuNumber( void )
 {

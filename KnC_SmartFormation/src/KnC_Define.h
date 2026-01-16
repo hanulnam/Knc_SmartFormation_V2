@@ -101,6 +101,8 @@
 
 #define MODIFY_DCIR_STEP_DATA           //20251216 DCIR 버그 수정
 #define MODIFY_DCIR_10MSEC_MODE         //20251219 DCIR 10msec Mode는 1msec 단위로 RawData 저장
+//#define SUPPORT_BLACK_OUT               //20261116 정전기능 구현, UPS 설치시 Enable 할 것 
+
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Structure
