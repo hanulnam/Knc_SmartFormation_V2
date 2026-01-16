@@ -1,0 +1,26 @@
+info version
+sdram
+eeprom data
+ref volt 5 3.3
+
+
+
+Pc_Comm_GetSystemInformationData -fw 정보
+Pc_Comm_GetLastOneSecondCondition - fw 현재 값 요청
+
+시퀀스 없다면 (Run 전에 확인)
+Pc_Comm_ResetStepSequence - seq step 초기화
+Pc_Comm_SetOneStepSequence - seq step data 전송
+Pc_Comm_GetStepSum32 - seq step data 검사
+
+구동
+Pc_Comm_GetStepSum32  - seq 검사
+Pc_Comm_MaskAlarmCondition - 알람 마스크
+Pc_Comm_SetV2ModeVoltage - adc contact mode
+Pc_Comm_GetVIV2 - contact read
+Pc_Comm_SetV2ModeCurrent - adc current mode
+Pc_Comm_RunControlBitsChannel - run set
+
+
+Pc_Comm_GetDataRecordOne - get step data 
+Pc_Comm_DeleteDataRecordOne - delete step data

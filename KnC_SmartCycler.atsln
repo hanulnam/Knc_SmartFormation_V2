@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Atmel Studio Solution File, Format Version 11.00
+VisualStudioVersion = 14.0.23107.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "KnC_SmartCycler", "KnC_SmartFormation\KnC_SmartCycler.cproj", "{C1F86145-1E98-4385-94F6-261B83009C06}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|AVR = Debug|AVR
+		Release|AVR = Release|AVR
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C1F86145-1E98-4385-94F6-261B83009C06}.Debug|AVR.ActiveCfg = Debug|AVR
+		{C1F86145-1E98-4385-94F6-261B83009C06}.Debug|AVR.Build.0 = Debug|AVR
+		{C1F86145-1E98-4385-94F6-261B83009C06}.Release|AVR.ActiveCfg = Release|AVR
+		{C1F86145-1E98-4385-94F6-261B83009C06}.Release|AVR.Build.0 = Release|AVR
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

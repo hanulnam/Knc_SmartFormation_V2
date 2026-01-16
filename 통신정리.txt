@@ -1,0 +1,138 @@
+Pc_Comm_GetRunStopAllChannel
+모든 채널의 상태 리턴(Run/Stop)
+PC에서 커멘드만 송신
+
+Pc_Comm_RunControlBitsChannel
+Run Set 명령어
+pc에서 2byte 송신
+buf[4] = Run할 채널 선택
+buf[5] = Run Start Index
+
+Pc_Comm_StopControlBitsChannel
+Stop 셋팅
+PC에서 1byte 송신
+buf[4] = Stop할 채널
+
+Pc_Comm_ResetStepSequence
+모든 채널이 Run이 아닐 때 m_uiStepDowloadSum Clear 처리
+PC에서 커멘드만 송신
+
+Pc_Comm_SetOneStepSequence
+1개 Sequence Data 셋팅
+PC에서 부터 1+ sizeof(_FORMATIONM_STEP_SEQUENCE) Byte 송신
+buf[4] = DRAM에 저장되어질 Seq Index 
+buf[5] = struct로 _FORMATIONM_STEP_SEQUENCE 참조
+
+Pc_Comm_GetStepSum32
+현재 Step Number 요청
+PC에서 커멘드만 송신
+
+Pc_Comm_Get_EEPROM_Pointer200
+eeprom 값 요청
+PC에서 1byte 송신
+buf[4] = 읽을 eeprom index
+
+Pc_Comm_Set_EEPROM_Pointer200
+EEPROM 데이터 셋팅
+PC에서 1 + n byte 송신
+buf[4] = index
+buf[5] = Struct로 _EEPROM_DATA 참조
+
+Pc_Comm_GetLastOneSecondCondition
+가장 최근 1초 데이터 요청 (모든 채널 데이터) _FORMATIONM_STEP_END_DATA 참조
+PC로 부터 커멘드만 송신
+
+Pc_Comm_GetDataRecordOne
+저장된 데이터는 1개만 요청, 데이터 삭제 ㄴㄴ
+PC에서 커멘드만 송신 ?
+
+Pc_Comm_DeleteDataRecordOne
+저장된 데이터 1개 삭제, POP 처리
+PC에서 커멘드만 송신 ?
+
+Pc_Comm_DeleteDataRecordAll
+저장된 데이터 삭제
+PC에서 커맨드만 송신 ?
+
+Pc_Comm_MaskAlarmCondition
+알람 마스크 설정
+PC에서 4 byte 송신
+buf[4] = Mask Data
+
+Pc_Comm_EEPRomControl
+EEPROM Control 셋팅(None, Write, Read, Init)
+PC에서 1Byte 전송
+buf[4] = EEPROM Control Mode 설정값
+
+Pc_Comm_SetGpIo
+SDRAM Check 검사, Fan GPIO 제어, Fan CoolDown Time 제어, 기타 GPIO 제어.
+PC에서 6byte 전송
+buf[4:7] = Address로 GPIO를 제외한 특수기능(SDRAM, FAN)관련 값은 따로 있음.
+buf[8:9] = Fan 및 GPIO 제어시 사용되는 값
+
+Pc_Comm_GetGpIo
+SDRAM Check Status 값 또는 GPIO 값 리턴
+PC에서 4byte 송신
+buf[4:7] = address 또는 SDRAM(특수값)
+
+Pc_Comm_SetChargePower
+파워 전압 셋팅 ??? (임시 있어서 확인 필요)
+PC로 부터 4byte 송신
+buf[4:7] = 파워 전압 값(float)
+
+Pc_Comm_GetChargePowerFet
+파워 값 요청 ??? (얘도 임시)
+PC에서 커멘드만 송신
+
+Pc_Comm_SetGate
+FET Gate GPIO 제어
+PC에서 1Byte 송신
+buf[4] = Gate GPIO 제어
+
+Pc_Comm_SetDac
+선택한 DAC Channel 과 값을 입력하면 DAC Set
+PC에서 3byte 전송
+buf[4] = DAC Address
+buf[5:6] = DAC 값
+
+Pc_Comm_StartCalibrationMode
+팬 On ???
+PC에서 커맨드만 송신
+
+Pc_Comm_GetCalibrationAdc
+ADC Cal 값 요청(vol1, cur, vol2)
+PC에서 커맨드만 전송 ?? ( 이거 필드 확인 해야함)
+
+Pc_Comm_GetSystemInformationData
+FW 정보 요청 ( _SystemParameterIndexLast 참조)
+PC에서 커맨드만 전송
+
+Pc_Comm_AllChannelReset
+모든 채널 STOP 처리 ???
+PC에서 커맨드만 전송
+
+Pc_Comm_SetHardWareInitialize
+하드웨어 초기화 명령어
+PC에서 커맨드만 전송
+
+Pc_Comm_GetDacValue
+Calc값을 참고한 DAC 값 요청(Voltage -> DAC)
+PC에서 1 + 4 byte 전송
+buf[4] = range CALIBRATION_MAX_RANGE 참조
+buf[5:8] = 변환할 전압 값(float)
+
+Pc_Comm_GetVIV2
+전압(v1,v2), 전류 값 요청
+PC에서 커맨드만 전송
+
+Pc_Comm_SetV2ModeCurrent
+
+PC에서 커맨드만 요청
+
+Pc_Comm_SetV2ModeVoltage
+
+PC에서 커맨드만 요청
+
+Pc_Comm_ClearLoopCounterAll
+모든 seq loop count clear 설정
+PC에서 커맨드만 요청

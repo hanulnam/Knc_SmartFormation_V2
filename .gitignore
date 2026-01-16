@@ -1,0 +1,25 @@
+# Build output
+KnC_SmartFormation/Debug/
+KnC_SmartFormation/Release/
+
+# Eclipse workspace metadata
+.metadata/
+.settings/
+
+# Linker script (optional)
+*.ld
+
+# CubeIDE project files (optional, some users prefer to version control these)
+.cproject
+.project
+.ioc
+*.o
+*.d
+*.su
+*.cyclo
+*.bak
+*.bin
+*.elf
+*.hex
+*.list
+*.map
