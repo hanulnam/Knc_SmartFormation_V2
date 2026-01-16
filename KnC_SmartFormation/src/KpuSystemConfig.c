@@ -95,7 +95,6 @@ void KpuPinDefineAndInitialize( void )		// Pin Define은 윤차장이 좀 수고
 		{ AVR32_PIN_PA07, GPIO_NORMAL_DRIVE_OUTPUT,					}, // PA07 // HTemp_A0							//n
 		{ AVR32_PIN_PA08, GPIO_NORMAL_DRIVE_OUTPUT,					}, // PA08 // Htemp_A1							//n
 		{ AVR32_PIN_PA09, GPIO_NORMAL_DRIVE_OUTPUT,					}, // PA09 // HTemp_A2							//n
-
     
     #ifdef SUPPORT_BLACK_OUT
     { AVR32_PIN_PA29, GPIO_NORMAL_INPUT,					}, // PA29 // Debug0							//n
@@ -962,7 +961,7 @@ __attribute__((__interrupt__)) static void CaptainTimerCounterInterrupHandler( v
 		if( m_ucPauseSequence[3] == _RESUME_ON )
 		{
 		  #ifdef SUPPORT_BLACK_OUT
-		  if ( m_ucPauseSequenceDelay[1] == _DELAY_NONE )
+		  if ( m_ucPauseSequenceDelay[3] == _DELAY_NONE )
       #endif
       {
   			m_ucPauseSequence[3] = FALSE;
